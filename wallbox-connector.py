@@ -45,7 +45,7 @@ wallbox.serial.bytesize = 8
 wallbox.serial.parity   = serial.PARITY_EVEN
 wallbox.serial.stopbits = 1
 wallbox.serial.timeout = 0.500  # seconds max to wait for answer
-wallbox.debug = True
+#wallbox.debug = True
 wallbox.mode = minimalmodbus.MODE_RTU
 
 maxCurrent = 0  # Initial maxCurrent, will be replaced by value from mqtt
@@ -140,14 +140,15 @@ def advertize_device():
     client.publish("homie/Heidelberg-Wallbox/wallbox/max_current/$name", "Max Ladeleistung", 1, True)
     client.publish("homie/Heidelberg-Wallbox/wallbox/max_current/$unit", "A", 1, True)
     client.publish("homie/Heidelberg-Wallbox/wallbox/max_current/$datatype", "integer", 1, True)
-
+    client.publish("homie/Heidelberg-Wallbox/wallbox/max_current/$settable", "true", 1, True)
+    
 def on_message_maxCurrent(client, userdata, message):
     global maxCurrent
     maxCurrent = int(message.payload.decode("utf-8"))
     logger.info("New Max Current received:" + str(maxCurrent))  
             
     
-client.message_callback_add("homie/Heidelberg-Wallbox/wallbox/max_current", on_message_maxCurrent)
+client.message_callback_add("homie/Heidelberg-Wallbox/wallbox/max_current/set", on_message_maxCurrent)
 client.on_connect = on_connect
 try:
     client.connect(MQTT_Config["broker_IP"], int(MQTT_Config["broker_port"]), 60)
@@ -176,9 +177,13 @@ def loop():
         try:
             logger.info("Set max current to: " + str(maxCurrent) + " A")  
             wallbox.write_register(registeraddress=261, value=(maxCurrent*10), numberOfDecimals=0, functioncode=6, signed=False)
+            
         except IOError:
             logger.info("Writing max current to Wallbox failed, probably standby")  
-        
+        try:
+            client.publish("homie/Heidelberg-Wallbox/wallbox/max_current", maxCurrent, 0, True)
+        except:
+            logger.info("Something wrong while sending max Current to MQTT")  
         
         
         ######################################
@@ -205,7 +210,8 @@ def loop():
         
         except IOError:
             logger.info("Reading Wallbox failed, probably standby")  
-        
+        except:
+            raise
 
         time.sleep(10)
 
