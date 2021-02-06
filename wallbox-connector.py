@@ -15,25 +15,17 @@ from configparser import ConfigParser
 #
 #   V 1.0: 03.02.2021:  Initail Release
 #   V 1.1: 04.02.2021   Added subscribe to max Current via MQTT
-#   V 1.2: 06.02.2021   Added discrete config File
+#   V 1.2: 06.02.2021   Added discrete Config File
 #
 
 #Read config.ini file
 config_object = ConfigParser()
 config_object.read("config.ini")
 
+general_Config = config_object["general"]
 MQTT_Config = config_object["MQTT Broker Config"]
 Modbus_Config = config_object["Modbus Config"]
 
-
-
-######################################
-#
-#  Konfiguration:
-#
-######################################
-
-log_file = "logs/wallbox-connector.log"
 
 ######################################
 #   MQTT Config
@@ -65,6 +57,14 @@ maxCurrent = 0  # Initial maxCurrent, will be replaced by value from mqtt
 #   Logging
 ######################################
 
+try:
+    os.makedirs(general_Config["log_path"])
+    print("Logdir " + general_Config["log_path"] + " created" )
+      
+except FileExistsError:
+    pass
+    
+
 class GZipRotator:
     def __call__(self, source, dest):
         os.rename(source, dest)
@@ -81,7 +81,7 @@ rootlogger = logging.getLogger()
 rootlogger.setLevel(logging.DEBUG)
 
 #setup logging to file, rotating at midnight
-filelog = logging.handlers.TimedRotatingFileHandler(log_file, when='midnight', interval=1)
+filelog = logging.handlers.TimedRotatingFileHandler(general_Config["log_path"]+general_Config["log_filename"], when='midnight', interval=1)
 filelog.setLevel(logging.INFO)
 fileformatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 filelog.setFormatter(fileformatter)
@@ -150,9 +150,9 @@ def on_message_maxCurrent(client, userdata, message):
 client.message_callback_add("homie/Heidelberg-Wallbox/wallbox/max_current", on_message_maxCurrent)
 client.on_connect = on_connect
 try:
-	client.connect(MQTT_Config["broker_IP"], int(MQTT_Config["broker_port"]), 60)
+    client.connect(MQTT_Config["broker_IP"], int(MQTT_Config["broker_port"]), 60)
 except:
-	logger.info("Could not connect to MQTT Broker")  
+    logger.info("Could not connect to MQTT Broker")  
 client.loop_start()
 
 ######################################
@@ -164,11 +164,11 @@ def loop():
         
         ######################################
         #    Deactivate Watchdog Timeout
-   		######################################
-   		try:
-    		instrument.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
- 		except:
-    		logger.info("Could not write to Modbus")
+        ######################################
+        try:
+            instrument.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
+        except:
+            logger.info("Could not write to Modbus")
         
         ######################################
         #   Send max Current to Wallbox
