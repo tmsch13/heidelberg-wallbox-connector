@@ -8,7 +8,7 @@ Values are published to MQTT in homie Standard and are easy integratable into op
 * current
 
 ### Currently the follwing Values are read from MQTT and will be written to Wallbox
-* maximal allowd current
+* maximal allowed current
 
 ### requirements 
 * Linux System running Linux and Python3 with access to a USB Port 
