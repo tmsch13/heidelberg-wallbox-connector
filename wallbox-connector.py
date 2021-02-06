@@ -8,14 +8,24 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 import gzip
 import os
+from configparser import ConfigParser
 
 
 ######################################
 #
-#   V 1.0: 05.02.2021:  Initail Release
+#   V 1.0: 03.02.2021:  Initail Release
 #   V 1.1: 04.02.2021   Added subscribe to max Current via MQTT
+#   V 1.2: 06.02.2021   Added discrete config File
 #
-#
+
+#Read config.ini file
+config_object = ConfigParser()
+config_object.read("config.ini")
+
+MQTT_Config = config_object["MQTT Broker Config"]
+Modbus_Config = config_object["Modbus Config"]
+
+
 
 ######################################
 #
@@ -30,23 +40,23 @@ log_file = "logs/wallbox-connector.log"
 ######################################
 
 client = mqtt.Client()
-client.username_pw_set(username="<MQTT Username>", password="<MQTT Password>")
+client.username_pw_set(username=MQTT_Config["user"], password=MQTT_Config["password"])
 
 ######################################
 #   Modbus Config
 ######################################
 
 # port name, slave address (in decimal)
-wallbox = minimalmodbus.Instrument('/dev/ttyUSB0', 5, mode='rtu')  #USB Device and Modbus Client ID  Change as you need
+wallbox = minimalmodbus.Instrument( Modbus_Config["usb_device"] , 5, mode='rtu')  #USB Device und Modbus Client ID
 wallbox.serial.baudrate = 19200
 wallbox.serial.bytesize = 8
 wallbox.serial.parity   = serial.PARITY_EVEN
 wallbox.serial.stopbits = 1
 wallbox.serial.timeout = 0.500  # seconds max to wait for answer
-#wallbox.debug = True
+wallbox.debug = True
 wallbox.mode = minimalmodbus.MODE_RTU
 
-maxCurrent = 0
+maxCurrent = 0  # Initial maxCurrent, will be replaced by value from mqtt
 
 ######################################
 
@@ -139,7 +149,10 @@ def on_message_maxCurrent(client, userdata, message):
     
 client.message_callback_add("homie/Heidelberg-Wallbox/wallbox/max_current", on_message_maxCurrent)
 client.on_connect = on_connect
-client.connect("<MQTT Broker IP>", 1883, 60)
+try:
+	client.connect(MQTT_Config["broker_IP"], int(MQTT_Config["broker_port"]), 60)
+except:
+	logger.info("Could not connect to MQTT Broker")  
 client.loop_start()
 
 ######################################
@@ -149,6 +162,13 @@ client.loop_start()
 def loop():
     while True:
         
+        ######################################
+        #    Deactivate Watchdog Timeout
+   		######################################
+   		try:
+    		instrument.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
+ 		except:
+    		logger.info("Could not write to Modbus")
         
         ######################################
         #   Send max Current to Wallbox
@@ -164,8 +184,6 @@ def loop():
         ######################################
         #   Read Values from Wallbox
         ######################################
-
-        ## Catch Error if Modbus Read fails
         try:
             #Total Energy
             Reg_17 = wallbox.read_register(registeraddress=17, numberOfDecimals=0, functioncode=4, signed=False)  #hight Byte
@@ -194,8 +212,6 @@ def loop():
 try:
     logger.info("------------ Wallbox Controller started ------------")
     time.sleep(5)   #Wait 5 Seconds for MQTT to Connect and Pull Messages
-    # Deactivate Watchdog Timeout
-    instrument.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
     loop()
 except:
     logger.info("------------ Client exited ------------")
