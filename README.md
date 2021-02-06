@@ -1,4 +1,4 @@
-# heidelberg-connector
+# heidelberg-wallbox-connector
 A simple Python Modbus to MQTT (homie) Connector for Heidelberg Energy Control Wallbox
 
 Values are published to MQTT in homie Standard and are easy integratable into openHAB and other Smart Home Systems
