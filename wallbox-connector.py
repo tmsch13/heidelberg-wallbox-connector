@@ -166,9 +166,9 @@ def loop():
         #    Deactivate Watchdog Timeout
         ######################################
         try:
-            instrument.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
+            wallbox.write_register(registeraddress=257, value=0, numberOfDecimals=0, functioncode=6, signed=False)
         except:
-            logger.info("Could not write to Modbus")
+            logger.info("Could not write to Modbus to deactivate Watchdog timeout")
         
         ######################################
         #   Send max Current to Wallbox
